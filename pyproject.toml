@@ -1,0 +1,38 @@
+[tool.poetry]
+name = "cartucho"
+version = "0.1.0a1"
+description = "A tool to cache function and method results"
+readme = "README.md"
+authors = ["Pablo Muñoz <pablerass@gmail.com>"]
+license = "LGPL-3.0-or-later"
+homepage = "https://github.com/pablerass/cartucho"
+keywords = ["cache", "function", "method", "decorator"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
+  "Programming Language :: Python :: 3.10",
+  "Typing :: Typed",
+]
+
+[tool.poetry.dependencies]
+python = ">=3.10"
+
+[poetry.group.dev.dependencies]
+pytest = "7.4.*"
+flake8 = "6.0.*"
+coverage = "7.2.*"
+bumpver = "*"
+ipython = "*"
+ipdb = "*"
+build = "*"
+
+[tool.poetry.urls]
+homepage = "https://github.com/pablerass/cartucho"
+
+[[tool.poetry.packages]]
+include = "cartucho"
+
+[build-system]
+requires = ["poetry-core>=1.7.0"]
+build-backend = "poetry.core.masonry.api"
