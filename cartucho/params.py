@@ -76,7 +76,6 @@ class FrozenDict(Mapping):
 
 class Params(Mapping):
     """Immutable, hashable parameters mapping that preserves function signature order."""
-
     def __init__(self, items: Iterable[tuple[str, object]]):
         self._items = tuple((k, _freeze(v)) for k, v in items)
         self._map = dict(self._items)

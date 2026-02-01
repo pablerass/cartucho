@@ -18,10 +18,13 @@ classifiers = [
 [tool.poetry.dependencies]
 python = ">=3.10"
 
-[poetry.group.dev.dependencies]
-pytest = "7.4.*"
-flake8 = "6.0.*"
-coverage = "7.2.*"
+[tool.poetry.group.test.dependencies]
+pytest = "*"
+flake8 = "*"
+coverage = "*"
+mypy = "*"
+
+[tool.poetry.group.dev.dependencies]
 bumpver = "*"
 ipython = "*"
 ipdb = "*"
@@ -36,3 +39,36 @@ include = "cartucho"
 [build-system]
 requires = ["poetry-core>=1.7.0"]
 build-backend = "poetry.core.masonry.api"
+
+[pytest]
+addopts = "--pdbcls=IPython.terminal.debugger:TerminalPdb"
+
+[tool.coverage.run]
+source = [
+  "."
+]
+omit = [
+  "conftest.py",
+  "setup.py",
+  "build/*",
+  "dist/*",
+  "docs/*",
+  "tests/*",
+  ".tox/*"
+]
+
+[tool.coverage.report]
+fail_under = 80
+
+[bumpver]
+current_version = "v0.1.0a1"
+version_pattern = "vMAJOR.MINOR.PATCH[PYTAGNUM]"
+commit_message = "bump version {old_version} -> {new_version}"
+commit = true
+tag = true
+push = false
+
+[bumpver.file_patterns]
+"cartucho/__init__.py" = [
+    '^__version__ = "{version}"$',
+]
