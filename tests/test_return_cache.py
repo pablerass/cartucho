@@ -1,6 +1,6 @@
 from cartucho.decorators import cached_method
 from cartucho.params import Params
-from cartucho.return_cache import ReturnCache, Cacheable
+from cartucho.return_cache import Cacheable, ReturnCache
 
 
 def test_return_cache_set_get_has_and_items():

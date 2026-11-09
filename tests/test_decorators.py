@@ -1,8 +1,8 @@
 import time
 
-from cartucho.return_cache import ReturnCache
 from cartucho.decorators import cached_function
 from cartucho.params import params as params_decorator
+from cartucho.return_cache import ReturnCache
 
 
 def test_cached_stores_result_and_retrieves_from_cache():

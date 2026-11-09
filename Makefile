@@ -1,4 +1,4 @@
-.PHONY: test lint clean-pyc clean-build clean-test build
+.PHONY: test test-debug lint clean-pyc clean-build clean-test build
 
 clean: clean-pyc clean-build clean-test
 
@@ -18,31 +18,34 @@ clean-build:
 	rm --force --recursive *.egg-info
 
 version:
-	poetry version 
+	uv version
 
 bump-major:
-	poetry run bumpver update --major
+	uv run bumpver update --major
 
 bump-minor:
-	poetry run bumpver update --minor
+	uv run bumpver update --minor
 
 bump-patch:
-	poetry run bumpver update --patch
+	uv run bumpver update --patch
 
 build:
-	poetry build
+	uv build
 
 lint:
-	poetry run flake8
+	uv run ruff check
 
 type-check:
-	poetry run mypy .
+	uv run ty check
 
 test:
-	poetry run pytest
+	uv run pytest
+
+test-debug:
+	uv run pytest --pdb -x $(ARGS)
 
 test-coverage:
-	poetry run coverage run --source cartucho -m pytest
-	poetry run coverage report -m
+	uv run coverage run --source cartucho -m pytest
+	uv run coverage report -m
 
 test-all: lint type-check test-coverage

@@ -2,23 +2,30 @@
 
 A library to easily cache function and method return values.
 
-## Using Poetry
+## Requirements
 
-This project uses Poetry for dependency management and packaging. To get started:
+- Python >= 3.10
+- [uv](https://docs.astral.sh/uv/)
 
-```bash
-# install poetry (if you don't already have it)
-curl -sSL https://install.python-poetry.org | python3 -
+## Installation
 
-# install dependencies and create virtual environment
-poetry install
+Clone the repository and install the project with its dependencies:
 
-# run tests
-poetry run pytest
-
-# start a shell in the virtual environment
-poetry shell
+```sh
+uv sync
 ```
 
-Tip: The project includes a `Makefile` with common targets like `make test` and
-`make build` that call Poetry under the hood.
+This creates a virtual environment in `.venv` with the package and the `dev`
+and `test` dependency groups installed. To install only the runtime
+dependencies, use `uv sync --no-default-groups`.
+
+## Development
+
+```sh
+make lint           # ruff
+make type-check     # ty
+make test           # pytest
+make test-coverage  # pytest with coverage report
+make test-all       # all of the above
+make build          # build sdist and wheel into dist/
+```

@@ -20,11 +20,12 @@ Usage:
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable
 
-from .return_cache import ReturnCache, Cacheable
-from .params import Params, params as params_decorator
+from .params import Params
+from .params import params as params_decorator
+from .return_cache import Cacheable, ReturnCache
 
 
 def cached_function(cache: ReturnCache | None) -> Callable[[Callable], Callable]:
@@ -43,7 +44,7 @@ def cached_function(cache: ReturnCache | None) -> Callable[[Callable], Callable]
 
     def decorator(func: Callable) -> Callable:
         params_maker = params_decorator(func)
-        scope = f"{func.__module__}.{func.__name__}"
+        scope = f"{func.__module__}.{getattr(func, '__name__', type(func).__name__)}"
 
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -101,7 +102,7 @@ def cached_method(func: Callable) -> Callable:
 
         # build scope: module, class name, method name, and instance identifier
         method_module = func.__module__
-        method_name = func.__name__
+        method_name = getattr(func, "__name__", type(func).__name__)
         class_name = self_obj.__class__.__name__
         instance_id = id(self_obj)
         scope = f"{method_module}.{class_name}.{method_name}.{instance_id}"

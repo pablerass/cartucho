@@ -1,6 +1,6 @@
 import pytest
 
-from cartucho.params import params, Params, FrozenDict
+from cartucho.params import FrozenDict, Params, params
 
 
 def test_params_dict_positional_and_defaults():

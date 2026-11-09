@@ -1,66 +1,69 @@
-[tool.poetry]
+[project]
 name = "cartucho"
 version = "0.1.0a1"
 description = "A tool to cache function and method results"
 readme = "README.md"
-authors = ["Pablo Muñoz <pablerass@gmail.com>"]
+authors = [{name = "Pablo Muñoz", email = "pablerass@gmail.com"}]
 license = "LGPL-3.0-or-later"
-homepage = "https://github.com/pablerass/cartucho"
+license-files = ["LICENSE.txt"]
 keywords = ["cache", "function", "method", "decorator"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
+  "Operating System :: OS Independent",
   "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Typing :: Typed",
 ]
+requires-python = ">=3.10"
+dependencies = []
 
-[tool.poetry.dependencies]
-python = ">=3.10"
+[project.urls]
+Homepage = "https://github.com/pablerass/cartucho"
 
-[tool.poetry.group.test.dependencies]
-pytest = "*"
-flake8 = "*"
-coverage = "*"
-mypy = "*"
+[dependency-groups]
+test = [
+  "pytest",
+  "coverage",
+  "ty",
+  "ruff",
+]
+dev = [
+  {include-group = "test"},
+  "bumpver",
+  "ipython",
+  "ipdb",
+]
 
-[tool.poetry.group.dev.dependencies]
-bumpver = "*"
-ipython = "*"
-ipdb = "*"
-build = "*"
-
-[tool.poetry.urls]
-homepage = "https://github.com/pablerass/cartucho"
-
-[[tool.poetry.packages]]
-include = "cartucho"
+[tool.uv]
+default-groups = ["dev"]
 
 [build-system]
-requires = ["poetry-core>=1.7.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["uv_build>=0.9,<0.14"]
+build-backend = "uv_build"
 
-[pytest]
+[tool.uv.build-backend]
+module-root = ""
+
+[tool.ruff]
+line-length = 120
+extend-exclude = ["docs"]
+
+[tool.pytest.ini_options]
 addopts = "--pdbcls=IPython.terminal.debugger:TerminalPdb"
 
 [tool.coverage.run]
-source = [
-  "."
-]
-omit = [
-  "conftest.py",
-  "setup.py",
-  "build/*",
-  "dist/*",
-  "docs/*",
-  "tests/*",
-  ".tox/*"
-]
+source = ["."]
+omit = [".venv/*", "conftest.py", "conftests.py", "build/*", "dist/*", "docs/*", "tests/*", ".tox/*"]
 
 [tool.coverage.report]
 fail_under = 80
 
-[bumpver]
+[tool.bumpver]
 current_version = "v0.1.0a1"
 version_pattern = "vMAJOR.MINOR.PATCH[PYTAGNUM]"
 commit_message = "bump version {old_version} -> {new_version}"
@@ -68,7 +71,9 @@ commit = true
 tag = true
 push = false
 
-[bumpver.file_patterns]
-"cartucho/__init__.py" = [
-    '^__version__ = "{version}"$',
+[tool.bumpver.file_patterns]
+"pyproject.toml" = [
+  '^current_version = "{version}"$',
+  '^version = "{pep440_version}"$',
 ]
+"cartucho/__init__.py" = ['^__version__ = "{pep440_version}"$']

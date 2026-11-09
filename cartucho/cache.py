@@ -13,11 +13,11 @@ The cache itself does not implement eviction; it's a simple in-memory store.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Optional
-import time
 import pickle
+import time
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from .params import Params
 
@@ -37,7 +37,7 @@ class CacheEntry:
     params: Params
     result: Any
     creation_time: float = field(default_factory=time.time)
-    last_retrieved: Optional[float] = None
+    last_retrieved: float | None = None
 
     def touch(self) -> None:
         """Update the `last_retrieved` timestamp to now."""
@@ -123,8 +123,7 @@ class Cache:
         If `scope` is None yield across all scope entries.
         """
 
-        for entry in self._store.values():
-            yield entry
+        yield from self._store.values()
 
     def __len__(self) -> int:
         return len(self._store)
@@ -166,7 +165,7 @@ class Cache:
             pickle.dump(self._store, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     @classmethod
-    def load(cls, path: str | Path) -> "Cache":
+    def load(cls, path: str | Path) -> Cache:
         """Load a cache from `path` previously written with `save`.
 
         Returns a new `Cache` instance whose internal store is populated
