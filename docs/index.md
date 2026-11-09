@@ -8,5 +8,6 @@
 :maxdepth: 2
 
 api
+releasing
 adr/index
 ```

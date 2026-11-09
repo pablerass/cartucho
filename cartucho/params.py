@@ -49,12 +49,60 @@ def _freeze(value):
     return value
 
 
+def _key(value):
+    """Return what a frozen value is compared and hashed by.
+
+    Every value is paired with its type, also inside containers, so values
+    that are equal but of different types (``1``, ``True`` and ``1.0``)
+    don't share a cache entry: a function may well return different results
+    for them.
+
+    Args:
+        value: A value already converted by `_freeze`.
+
+    Returns:
+        A key that is equal for equal values of the same types. It is
+        hashable when ``value`` is.
+    """
+    if isinstance(value, (FrozenDict, Params)):
+        return value._key
+    if isinstance(value, tuple):
+        return (tuple, tuple(_key(v) for v in value))
+    if isinstance(value, frozenset):
+        keys = [_key(v) for v in value]
+        try:
+            return (frozenset, frozenset(keys))
+        except TypeError:
+            # Members only hashable by repr (see FrozenDict).
+            return (frozenset, _sorted_by_repr(keys))
+    return (type(value), value)
+
+
+def _sorted_by_repr(keys):
+    """Return ``keys`` as a tuple in a fixed order, for unhashable keys.
+
+    Distinct values with the same ``repr`` keep their original order, which
+    at worst makes equal containers miss the cache.
+    """
+    return tuple(sorted(keys, key=repr))
+
+
+def _hash(key, fallback):
+    """Hash ``key``, or ``fallback()`` when it holds unhashable values."""
+    try:
+        return hash(key)
+    except TypeError:
+        return hash(fallback())
+
+
 class FrozenDict(Mapping):
     """An immutable, hashable mapping that preserves insertion order.
 
-    It behaves like a read-only `dict`, but can be hashed and compares equal
-    to any mapping with the same items, regardless of their order. Nested
-    containers in the values are frozen too.
+    It behaves like a read-only `dict`, but can be hashed. Two `FrozenDict`
+    are equal when they have the same items, regardless of their order, and
+    the same types of keys and values (``{"a": 1} != {"a": True}``). Compared
+    with other mappings, only the items matter. Nested containers in the
+    values are frozen too.
 
     If some values are still unhashable after freezing, the hash falls back
     to their `repr`.
@@ -67,12 +115,14 @@ class FrozenDict(Mapping):
         items: tuple[tuple[object, object], ...] = tuple((k, _freeze(v)) for k, v in mapping.items())
         self._items = items
         self._map = dict(items)
-        # Order-independent hash, consistent with __eq__ (which ignores order)
+        # Order-independent key, unless some values are unhashable.
+        pairs = [(_key(k), _key(v)) for k, v in items]
         try:
-            self._hash = hash(frozenset(items))
+            self._key = (FrozenDict, frozenset(pairs))
         except TypeError:
-            # If some values are still unhashable, fall back to hashing the repr
-            self._hash = hash(frozenset((k, repr(v)) for k, v in items))
+            self._key = (FrozenDict, _sorted_by_repr(pairs))
+        # If some values are still unhashable, fall back to hashing the repr
+        self._hash = _hash(self._key, lambda: frozenset((k, repr(v)) for k, v in items))
 
     def __getitem__(self, key):
         return self._map[key]
@@ -96,6 +146,8 @@ class FrozenDict(Mapping):
         return self._hash
 
     def __eq__(self, other):
+        if isinstance(other, (FrozenDict, Params)):
+            return self._key == other._key
         if isinstance(other, Mapping):
             return dict(self._items) == dict(other)
         return NotImplemented
@@ -105,9 +157,10 @@ class Params(Mapping):
     """Immutable, hashable mapping of parameter names to values.
 
     Keys keep the order they were given in (the function's signature order
-    when built by `params`). Values are frozen like in `FrozenDict`. It
-    compares equal to any mapping with the same items, but its hash depends
-    on the order of the items.
+    when built by `params`). Values are frozen like in `FrozenDict`. Two
+    `Params` are equal when they have the same items in the same order, with
+    the same types of values (``f(1)`` and ``f(True)`` are different calls).
+    Compared with other mappings, only the items matter.
 
     Args:
         items: ``(name, value)`` pairs, in signature order.
@@ -116,10 +169,8 @@ class Params(Mapping):
     def __init__(self, items: Iterable[tuple[str, object]]):
         self._items = tuple((k, _freeze(v)) for k, v in items)
         self._map = dict(self._items)
-        try:
-            self._hash = hash(self._items)
-        except TypeError:
-            self._hash = hash(tuple((k, repr(v)) for k, v in self._items))
+        self._key = (Params, tuple((k, _key(v)) for k, v in self._items))
+        self._hash = _hash(self._key, lambda: tuple((k, repr(v)) for k, v in self._items))
 
     def __getitem__(self, key):
         return self._map[key]
@@ -151,6 +202,8 @@ class Params(Mapping):
         return self._hash
 
     def __eq__(self, other):
+        if isinstance(other, (FrozenDict, Params)):
+            return self._key == other._key
         if isinstance(other, Mapping):
             return dict(self._items) == dict(other)
         return NotImplemented

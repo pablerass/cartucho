@@ -1,4 +1,4 @@
-.PHONY: test lint clean-pyc clean-build clean-test clean-docs build docs
+.PHONY: test lint clean-pyc clean-build clean-test clean-docs build docs version release-major release-minor release-patch
 
 clean: clean-pyc clean-build clean-test clean-docs
 
@@ -23,14 +23,15 @@ clean-build:
 version:
 	uv version
 
-bump-major:
-	uv run bumpver update --major
+# Cut a release; see docs/releasing.md. DRY_RUN=1 previews, PUSH=1 publishes.
+release-major:
+	scripts/release.sh major
 
-bump-minor:
-	uv run bumpver update --minor
+release-minor:
+	scripts/release.sh minor
 
-bump-patch:
-	uv run bumpver update --patch
+release-patch:
+	scripts/release.sh patch
 
 build:
 	uv build

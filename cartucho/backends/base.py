@@ -55,6 +55,19 @@ class Backend(ABC):
             The removed entry, or ``None`` if there was none.
         """
 
+    def discard(self, scope: str, params: Params) -> None:
+        """Remove the entry for ``params`` in ``scope`` without reading it.
+
+        Unlike `delete`, it doesn't return the entry, so backends that
+        serialize entries can skip loading it. The default implementation
+        calls `delete`; override it when deleting without reading is cheaper.
+
+        Args:
+            scope: Scope of the entry.
+            params: Parameters identifying the entry.
+        """
+        self.delete(scope, params)
+
     @abstractmethod
     def has(self, scope: str, params: Params) -> bool:
         """Return whether ``scope`` holds an entry for ``params``.

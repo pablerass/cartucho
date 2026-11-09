@@ -11,7 +11,7 @@ Example:
 """
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from typing import Any
 
 from .backends import Backend, MemoryBackend
@@ -71,6 +71,18 @@ class ReturnCache:
         """
         entry = self.backend.delete(scope, params)
         return default if entry is None else entry.result
+
+    def discard(self, params: Params, scope: str = "") -> None:
+        """Remove the entry for ``params``, if any, without reading it.
+
+        Prefer it over `pop` when the result is not needed: shared backends
+        don't have to download and unpickle the entry.
+
+        Args:
+            params: Parameters identifying the entry.
+            scope: Scope of the entry.
+        """
+        self.backend.discard(scope, params)
 
     def has(self, params: Params, scope: str = "") -> bool:
         """Return whether there is an entry for ``params``.
@@ -183,14 +195,36 @@ class Cacheable:
                 give each instance its own scope.
         """
 
+        return type(self).build_cache_id(lambda name: getattr(self, name))
+
+    @classmethod
+    def build_cache_id(cls, value_of: Callable[[str], Any]) -> str:
+        """Build the default `cache_id` of this class from given values.
+
+        `cache_id` calls it with the instance's attributes. It is also used
+        to rebuild the id of an instance that is not at hand, for example by
+        `cached_evicts` from another object holding the same values.
+
+        Args:
+            value_of: Returns the value of each name in
+                `cache_id_attributes`.
+
+        Returns:
+            ``"name=value,..."``, or an empty string when no attributes are
+            declared.
+
+        Raises:
+            TypeError: When a value uses the default `object.__repr__`.
+        """
+
         parts = []
-        for name in self.cache_id_attributes:
-            value = getattr(self, name)
+        for name in cls.cache_id_attributes:
+            value = value_of(name)
             if type(value).__repr__ is object.__repr__:
                 # The default repr contains the memory address: it would make
                 # the id differ per instance and process, silently breaking reuse.
                 raise TypeError(
-                    f"{type(self).__name__}.{name} ({type(value).__name__}) has no stable repr; "
+                    f"{cls.__name__}.{name} ({type(value).__name__}) has no stable repr; "
                     "use a value such as str or int in cache_id_attributes or override cache_id()"
                 )
             parts.append(f"{name}={value!r}")

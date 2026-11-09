@@ -21,9 +21,9 @@ Attributes:
     __version__ (str): The installed version of cartucho.
 """
 
-from .decorators import cached_function, cached_method
+from .decorators import cached_evicts, cached_function, cached_method
 from .return_cache import Cacheable, ReturnCache
 
 __version__ = "0.1.0a1"
 
-__all__ = ["Cacheable", "ReturnCache", "__version__", "cached_function", "cached_method"]
+__all__ = ["Cacheable", "ReturnCache", "__version__", "cached_evicts", "cached_function", "cached_method"]

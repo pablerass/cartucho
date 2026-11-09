@@ -6,12 +6,18 @@ readme = "README.md"
 authors = [{ name = "Pablo Muñoz", email = "pablerass@gmail.com" }]
 license = "LGPL-3.0-or-later"
 license-files = ["LICENSE.txt"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 keywords = ["cache", "function", "method", "decorator"]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
-  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Typing :: Typed",
 ]
 dependencies = []
@@ -58,7 +64,7 @@ module-root = ""
 requires = ["uv_build>=0.13.6,<0.14"]
 build-backend = "uv_build"
 
-[pytest]
+[tool.pytest.ini_options]
 addopts = "--pdbcls=IPython.terminal.debugger:TerminalPdb"
 
 [tool.coverage.run]
@@ -78,15 +84,19 @@ omit = [
 [tool.coverage.report]
 fail_under = 80
 
-[bumpver]
+[tool.bumpver]
 current_version = "v0.1.0a1"
 version_pattern = "vMAJOR.MINOR.PATCH[PYTAGNUM]"
-commit_message = "bump version {old_version} -> {new_version}"
-commit = true
-tag = true
+# scripts/release.sh commits and tags, after updating uv.lock.
+commit = false
+tag = false
 push = false
 
-[bumpver.file_patterns]
+[tool.bumpver.file_patterns]
+"pyproject.toml" = [
+  '^current_version = "{version}"$',
+  '^version = "{pep440_version}"$',
+]
 "cartucho/__init__.py" = [
-    '^__version__ = "{version}"$',
+  '^__version__ = "{pep440_version}"$',
 ]

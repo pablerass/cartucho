@@ -17,7 +17,12 @@ def _redis():
     return RedisBackend(fakeredis.FakeRedis(), prefix="test")
 
 
-@pytest.fixture(params=[_memory, _redis], ids=["memory", "redis"])
+def _redis_local():
+    fakeredis = pytest.importorskip("fakeredis")
+    return RedisBackend(fakeredis.FakeRedis(), prefix="test", local_cache_size=8)
+
+
+@pytest.fixture(params=[_memory, _redis, _redis_local], ids=["memory", "redis", "redis-local"])
 def backend(request):
     return request.param()
 

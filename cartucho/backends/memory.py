@@ -4,6 +4,7 @@ from __future__ import annotations
 import pickle
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Self
 
 from ..entry import CacheEntry
 from ..params import Params
@@ -76,7 +77,7 @@ class MemoryBackend(Backend):
             pickle.dump(self._scopes, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     @classmethod
-    def load(cls, path: str | Path) -> MemoryBackend:
+    def load(cls, path: str | Path) -> Self:
         """Create a backend with the entries written by `save`.
 
         Warning:
