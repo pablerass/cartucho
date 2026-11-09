@@ -17,12 +17,18 @@ classifiers = [
 
 [tool.poetry.dependencies]
 python = ">=3.10"
+redis = { version = ">=4.0", optional = true }
+
+[tool.poetry.extras]
+redis = ["redis"]
 
 [tool.poetry.group.test.dependencies]
 pytest = "*"
 flake8 = "*"
 coverage = "*"
 mypy = "*"
+redis = ">=4.0"
+fakeredis = "*"
 
 [tool.poetry.group.dev.dependencies]
 bumpver = "*"

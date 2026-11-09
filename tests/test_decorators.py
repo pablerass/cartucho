@@ -24,7 +24,7 @@ def test_cached_stores_result_and_retrieves_from_cache():
     params_maker = params_decorator(original)
     key = params_maker(1)
     # scope is composed of module and function name for functions
-    scope = f"{original.__module__}.{original.__name__}"
+    scope = f"{original.__module__}.{original.__qualname__}"
     assert cache.get(key, scope=scope) == 3
     assert len(cache) == 1
 
@@ -86,3 +86,28 @@ def test_different_params_produce_separate_cache_entries():
 
     # two distinct keys stored
     assert len(cache) == 2
+
+
+def test_cached_none_result_is_not_recomputed():
+    cache = ReturnCache()
+    calls = []
+
+    @cached_function(cache)
+    def nothing(a):
+        calls.append(a)
+
+    assert nothing(1) is None
+    assert nothing(1) is None
+    assert calls == [1]
+
+
+def test_cached_function_none_cache_disables_caching():
+    calls = []
+
+    @cached_function(None)
+    def f(a):
+        calls.append(a)
+        return a
+
+    assert f(1) == f(1) == 1
+    assert calls == [1, 1]

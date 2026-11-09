@@ -1,73 +1,53 @@
-"""Function utilities: a decorator to memoize using a provided `Cache`.
+"""Decorators that memoize functions and methods in a `ReturnCache`.
 
-The `cached` decorator below accepts a `Cache` instance and returns a
-decorator which will use the function's signature to build a `Params`
-key. If the key is present in the cache, the cached result is returned
-directly; otherwise the function is executed and its return value stored
-in the cache before being returned.
+    cache = ReturnCache()
 
-Usage:
-
-    cache = Cache()
-
-    @cached(cache)
+    @cached_function(cache)
     def compute(a, b=2):
         return a + b
 
     compute(1)  # computed and stored
     compute(1)  # returned from cache
 
+The cache key is the `Params` built from the call (defaults included) and
+each function or method gets its own scope inside the cache.
 """
 from __future__ import annotations
 
 from functools import wraps
-from typing import Callable
+from typing import Any, Callable
 
-from .return_cache import ReturnCache, Cacheable
 from .params import Params, params as params_decorator
+from .return_cache import Cacheable, ReturnCache
+
+_MISSING = object()
+
+
+def _cached_call(cache: ReturnCache, scope: str, key: Params, func: Callable, args: Any, kwargs: Any) -> Any:
+    # Single lookup with a sentinel: a has()/get() pair could race with
+    # expiration in shared backends, and None is a valid cached result.
+    result = cache.get(key, _MISSING, scope=scope)
+    if result is _MISSING:
+        result = func(*args, **kwargs)
+        cache.set(key, result, scope=scope)
+    return result
 
 
 def cached_function(cache: ReturnCache | None) -> Callable[[Callable], Callable]:
-    """Decorator factory that memoizes calls to the decorated function.
-
-    - `cache` should be an instance of `cartucho.return_cache.ReturnCache`.
-    - The cache key is a `Params` object built from the function's
-      signature and the provided call arguments. Ordering and defaults are
-      preserved the same way `Params` would be constructed elsewhere in
-      the project.
-
-    The decorated function is executed only when the key is not present
-    in the cache. On a cache hit the stored value is returned without
-    calling the function.
-    """
+    """Memoize a function in `cache`. If `cache` is None nothing is cached."""
 
     def decorator(func: Callable) -> Callable:
         params_maker = params_decorator(func)
-        scope = f"{func.__module__}.{func.__name__}"
+        scope = f"{func.__module__}.{func.__qualname__}"
 
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # If the function-level cache is None, skip caching entirely
             if cache is None:
                 return func(*args, **kwargs)
             key = params_maker(*args, **kwargs)
-
             if "self" in key:
-                # for class methods use cache_method instead
-                raise TypeError("cached_function cannot be used on instance methods")
-
-            present = cache.has(key, scope=scope)
-
-            if present:
-                cached_value = cache.get(key, scope=scope)
-                return cached_value
-
-            result = func(*args, **kwargs)
-            try:
-                cache.set(key, result, scope=scope)
-            except TypeError:
-                cache.set(key, result)
-            return result
+                raise TypeError("cached_function cannot be used on instance methods, use cached_method")
+            return _cached_call(cache, scope, key, func, args, kwargs)
 
         return wrapper
 
@@ -75,11 +55,11 @@ def cached_function(cache: ReturnCache | None) -> Callable[[Callable], Callable]
 
 
 def cached_method(func: Callable) -> Callable:
-    """Decorator for instance methods of `Cacheable` classes.
+    """Memoize a method of a `Cacheable` in the instance's `return_cache`.
 
-    The decorated method will use the instance's `cache` attribute to
-    store and retrieve results. The instance must inherit from
-    `Cacheable` and have been constructed with a `Cache`.
+    The scope is the method plus the instance's `cache_id()`, so instances
+    with the same id (by default, all of them) share results. If the
+    instance's `return_cache` is None nothing is cached.
     """
 
     params_maker = params_decorator(func)
@@ -87,40 +67,21 @@ def cached_method(func: Callable) -> Callable:
     @wraps(func)
     def wrapper(*args, **kwargs):
         key = params_maker(*args, **kwargs)
-
         if "self" not in key:
             raise TypeError("cached_method must be used on instance methods")
 
         self_obj = key["self"]
         if not isinstance(self_obj, Cacheable):
             raise TypeError("Instance is not Cacheable; cannot use cached_method")
-
-        # Remove raw 'self' and append instance-specific key items
-        items = [(k, v) for k, v in key.items() if k != "self"]
-        key = Params(items)
-
-        # build scope: module, class name, method name, and instance identifier
-        method_module = func.__module__
-        method_name = func.__name__
-        class_name = self_obj.__class__.__name__
-        instance_id = id(self_obj)
-        scope = f"{method_module}.{class_name}.{method_name}.{instance_id}"
-        # Prefer using the instance's ReturnCache; if absent, skip caching.
-        rc = getattr(self_obj, "return_cache", None)
-        if rc is None:
+        if self_obj.return_cache is None:
             return func(*args, **kwargs)
 
-        try:
-            present = rc.has(key, scope=scope)
-        except TypeError:
-            present = rc.has(key)
-        if present:
-            cached_value = rc.get(key, scope=scope)
-            return cached_value
-
-        result = func(*args, **kwargs)
-        rc.set(key, result, scope=scope)
-        return result
+        key = Params((k, v) for k, v in key.items() if k != "self")
+        scope = f"{func.__module__}.{func.__qualname__}"
+        cache_id = self_obj.cache_id()
+        if cache_id:
+            scope = f"{scope}[{cache_id}]"
+        return _cached_call(self_obj.return_cache, scope, key, func, args, kwargs)
 
     return wrapper
 

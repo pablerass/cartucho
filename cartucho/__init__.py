@@ -1,9 +1,17 @@
-"""cartucho package initializer
+"""cartucho: cache function and method return values.
 
-This file contains the package version and a minimal package header required for
-packaging and imports.
+    from cartucho import ReturnCache, cached_function
+
+    cache = ReturnCache()  # or ReturnCache(RedisBackend.from_url("redis://..."))
+
+    @cached_function(cache)
+    def get_game(game_id):
+        ...
 """
+
+from .decorators import cached_function, cached_method
+from .return_cache import Cacheable, ReturnCache
 
 __version__ = "0.1.0a1"
 
-__all__ = ["__version__"]
+__all__ = ["__version__", "ReturnCache", "Cacheable", "cached_function", "cached_method"]

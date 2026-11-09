@@ -46,11 +46,12 @@ class FrozenDict(Mapping):
         items: tuple[tuple[object, object], ...] = tuple((k, _freeze(v)) for k, v in mapping.items())
         self._items = items
         self._map = dict(items)
+        # Order-independent hash, consistent with __eq__ (which ignores order)
         try:
-            self._hash = hash(items)
+            self._hash = hash(frozenset(items))
         except TypeError:
             # If some values are still unhashable, fall back to hashing the repr
-            self._hash = hash(tuple((k, repr(v)) for k, v in items))
+            self._hash = hash(frozenset((k, repr(v)) for k, v in items))
 
     def __getitem__(self, key):
         return self._map[key]
@@ -64,6 +65,11 @@ class FrozenDict(Mapping):
 
     def __repr__(self):
         return f"FrozenDict({self._map!r})"
+
+    def __reduce__(self):
+        # Rebuild on unpickle so the hash is recomputed in the loading
+        # process (str hashes are randomized per process).
+        return (FrozenDict, (self._map,))
 
     def __hash__(self):
         return self._hash
@@ -99,6 +105,11 @@ class Params(Mapping):
 
     def __repr__(self):
         return f"Params({self._map!r})"
+
+    def __reduce__(self):
+        # Rebuild on unpickle so the hash is recomputed in the loading
+        # process (str hashes are randomized per process).
+        return (Params, (self._items,))
 
     def __hash__(self):
         return self._hash

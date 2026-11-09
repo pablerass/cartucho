@@ -1,101 +1,101 @@
-"""ReturnCache: per-function-scope cache manager.
+"""ReturnCache: caches return values in a pluggable `Backend`.
 
-This small utility provides a container that maps a scope
-identifier to a `Cache` instance for that function. It acts as a
-convenience for storing and retrieving cached results separated by
-function or instance scope.
+    cache = ReturnCache()                                    # in memory
+    cache = ReturnCache(RedisBackend.from_url("redis://..."))  # shared
+
+Entries are separated by `scope` (the decorators use one per function or
+method); the default scope is ``""``.
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Iterator
 
-from .cache import Cache
+from .backends import Backend, MemoryBackend
+from .entry import CacheEntry
 from .params import Params
 
 
 class ReturnCache:
-    """A container of per-function caches.
+    """Maps `(scope, Params)` to a result, kept in `backend`."""
 
-    ReturnCache manages a mapping from scope strings to `Cache`
-    instances. This lets each function or method have an isolated cache
-    while reusing the `Cache` data structure.
-    """
+    def __init__(self, backend: Backend | None = None) -> None:
+        self.backend = MemoryBackend() if backend is None else backend
 
-    def __init__(self) -> None:
-        self._scopes: dict[str, Cache] = {"": Cache()}
+    def get(self, params: Params, default: Any = None, scope: str = "") -> Any:
+        entry = self.backend.get(scope, params)
+        return default if entry is None else entry.result
 
-    def get(self, params: Params, default: Any = None, scope: str | None = None) -> Any:
-        ns = "" if scope is None else str(scope)
-        c = self._scopes.get(ns)
-        if not c:
-            return default
-        return c.get(params, default)
+    def set(self, params: Params, result: Any, scope: str = "") -> None:
+        self.backend.set(scope, CacheEntry(params=params, result=result))
 
-    def set(self, params: Params, result: Any, scope: str | None = None) -> None:
-        ns = "" if scope is None else str(scope)
-        c = self._scopes.setdefault(ns, Cache())
-        c.set(params, result)
+    def pop(self, params: Params, default: Any = None, scope: str = "") -> Any:
+        entry = self.backend.delete(scope, params)
+        return default if entry is None else entry.result
 
-    def pop(self, params: Params, default: Any = None, scope: str | None = None) -> Any:
-        ns = "" if scope is None else str(scope)
-        c = self._scopes.get(ns)
-        if not c:
-            return default
-        return c.pop(params, default)
+    def has(self, params: Params, scope: str = "") -> bool:
+        return self.backend.has(scope, params)
 
-    def items(self, scope: str | None = None):
-        if scope is None:
-            for ns, c in self._scopes.items():
-                for p, r in c.items():
-                    yield (p, r)
-        else:
-            ns = "" if scope is None else str(scope)
-            c = self._scopes.get(ns, Cache())
-            for p, r in c.items():
-                yield (p, r)
+    def entries(self, scope: str | None = None) -> Iterator[CacheEntry]:
+        """Entries of `scope`, or of every scope if None."""
+        return self.backend.entries(scope)
 
-    def entries(self, scope: str | None = None):
-        if scope is None:
-            for c in self._scopes.values():
-                for e in c.entries():
-                    yield e
-        else:
-            ns = "" if scope is None else str(scope)
-            c = self._scopes.get(ns, Cache())
-            for e in c.entries():
-                yield e
+    def items(self, scope: str | None = None) -> Iterator[tuple[Params, Any]]:
+        """`(params, result)` pairs of `scope`, or of every scope if None."""
+        for entry in self.backend.entries(scope):
+            yield (entry.params, entry.result)
 
-    def clear(self) -> None:
-        self._scopes.clear()
-        self._scopes[""] = Cache()
-
-    def clear_scope(self, scope: str | None) -> None:
-        ns = "" if scope is None else str(scope)
-        self._scopes.pop(ns, None)
+    def clear(self, scope: str | None = None) -> None:
+        """Remove the entries of `scope`, or every entry if None."""
+        self.backend.clear(scope)
 
     def __len__(self) -> int:
-        return sum(len(c) for c in self._scopes.values())
+        return len(self.backend)
 
-    def __contains__(self, params: Params) -> bool:
-        return any(params in c for c in self._scopes.values())
-
-    def scopes(self):
-        return list(self._scopes.keys())
-
-    def has(self, params: Params, scope: str | None = None) -> bool:
-        """Return True if the specified scope contains `params`.
-
-        If `scope` is None, checks across all scopes.
-        """
-        if scope is None:
-            return any(params in c for c in self._scopes.values())
-        ns = "" if scope is None else str(scope)
-        c = self._scopes.get(ns)
-        if not c:
-            return False
-        return params in c
+    def __repr__(self) -> str:
+        return f"ReturnCache(backend={self.backend!r})"
 
 
 class Cacheable:
+    """Base class for objects whose `cached_method`s use `return_cache`.
+
+    By default every instance of a class shares the same cache scope, so
+    results survive the instance and are reused by other instances and
+    processes. When some attributes change what the methods return (e.g. the
+    URL of the server a client talks to), list them in `cache_id_attributes`
+    and instances with different values get separate scopes:
+
+        class Bitbucket(Cacheable):
+            cache_id_attributes = ("url",)
+
+    Override `cache_id()` for anything more complex.
+    See docs/adr/0001-cacheable-instance-scopes.md.
+    """
+
+    cache_id_attributes: tuple[str, ...] = ()
+
     def __init__(self, return_cache: ReturnCache | None = None) -> None:
         self.return_cache = return_cache
+
+    def cache_id(self) -> str:
+        """Return what tells this instance's cached results apart.
+
+        Built from `cache_id_attributes` as ``"name=value,..."``; empty when
+        no attributes are declared. It must be the same for equivalent
+        instances in every process, so values must have a stable `repr`.
+        """
+
+        parts = []
+        for name in self.cache_id_attributes:
+            value = getattr(self, name)
+            if type(value).__repr__ is object.__repr__:
+                # The default repr contains the memory address: it would make
+                # the id differ per instance and process, silently breaking reuse.
+                raise TypeError(
+                    f"{type(self).__name__}.{name} ({type(value).__name__}) has no stable repr; "
+                    "use a value such as str or int in cache_id_attributes or override cache_id()"
+                )
+            parts.append(f"{name}={value!r}")
+        return ",".join(parts)
+
+
+__all__ = ["ReturnCache", "Cacheable"]
