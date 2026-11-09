@@ -1,12 +1,24 @@
-"""cartucho: cache function and method return values.
+"""Cache function and method return values.
 
-    from cartucho import ReturnCache, cached_function
+Cartucho memoizes the results of functions and methods in a `ReturnCache`,
+which keeps its entries in a pluggable backend (see `cartucho.backends`).
 
-    cache = ReturnCache()  # or ReturnCache(RedisBackend.from_url("redis://..."))
+Example:
+    .. code-block:: python
 
-    @cached_function(cache)
-    def get_game(game_id):
-        ...
+        from cartucho import ReturnCache, cached_function
+
+        cache = ReturnCache()  # or ReturnCache(RedisBackend.from_url("redis://..."))
+
+        @cached_function(cache)
+        def get_game(game_id):
+            ...
+
+        get_game(13)  # computed and stored
+        get_game(13)  # returned from the cache
+
+Attributes:
+    __version__ (str): The installed version of cartucho.
 """
 
 from .decorators import cached_function, cached_method

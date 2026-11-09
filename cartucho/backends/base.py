@@ -11,36 +11,83 @@ from ..params import Params
 class Backend(ABC):
     """Where a `ReturnCache` keeps its entries.
 
-    Entries are grouped by `scope` (one per cached function or method) and
+    Entries are grouped by ``scope`` (one per cached function or method) and
     identified inside it by their `Params`. Implementations only have to
     store and find `CacheEntry` objects; `ReturnCache` does the rest.
+
+    Subclasses must implement every abstract method. ``__len__`` has a generic
+    implementation based on `entries` that subclasses can override with a
+    faster one.
     """
 
     @abstractmethod
     def get(self, scope: str, params: Params) -> CacheEntry | None:
-        """Return the entry for `params` in `scope` (touching it) or None."""
+        """Return the entry for ``params`` in ``scope``.
+
+        Implementations should call `CacheEntry.touch` on the entry found.
+
+        Args:
+            scope: Scope of the entry.
+            params: Parameters identifying the entry.
+
+        Returns:
+            The entry, or ``None`` if there is none.
+        """
 
     @abstractmethod
     def set(self, scope: str, entry: CacheEntry) -> None:
-        """Store `entry` in `scope`, replacing any entry with the same params."""
+        """Store ``entry`` in ``scope``, replacing any entry with the same params.
+
+        Args:
+            scope: Scope of the entry.
+            entry: Entry to store. Its ``params`` identify it.
+        """
 
     @abstractmethod
     def delete(self, scope: str, params: Params) -> CacheEntry | None:
-        """Remove and return the entry for `params` in `scope`, if any."""
+        """Remove the entry for ``params`` in ``scope``.
+
+        Args:
+            scope: Scope of the entry.
+            params: Parameters identifying the entry.
+
+        Returns:
+            The removed entry, or ``None`` if there was none.
+        """
 
     @abstractmethod
     def has(self, scope: str, params: Params) -> bool:
-        """Return True if `scope` holds an entry for `params`."""
+        """Return whether ``scope`` holds an entry for ``params``.
+
+        Args:
+            scope: Scope of the entry.
+            params: Parameters identifying the entry.
+
+        Returns:
+            ``True`` if the entry exists.
+        """
 
     @abstractmethod
     def entries(self, scope: str | None = None) -> Iterator[CacheEntry]:
-        """Iterate over the entries of `scope`, or of every scope if None."""
+        """Iterate over stored entries.
+
+        Args:
+            scope: Scope to list, or ``None`` for every scope.
+
+        Yields:
+            CacheEntry: Each entry, in no particular order.
+        """
 
     @abstractmethod
     def clear(self, scope: str | None = None) -> None:
-        """Remove the entries of `scope`, or every entry if None."""
+        """Remove entries.
+
+        Args:
+            scope: Scope to empty, or ``None`` to remove every entry.
+        """
 
     def __len__(self) -> int:
+        """Return the number of entries in every scope."""
         return sum(1 for _ in self.entries())
 
 

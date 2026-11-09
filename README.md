@@ -57,23 +57,20 @@ process must be able to import the same code. `ttl` (seconds) is optional.
 
 New backends subclass `cartucho.backends.Backend`.
 
-## Using Poetry
+## Development
 
-This project uses Poetry for dependency management and packaging. To get started:
+This project uses [uv](https://docs.astral.sh/uv/) for dependency management and packaging:
 
 ```bash
-# install poetry (if you don't already have it)
-curl -sSL https://install.python-poetry.org | python3 -
+# install uv (if you don't already have it)
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# install dependencies and create virtual environment
-poetry install
+# create the virtual environment with every dependency group
+uv sync
 
-# run tests
-poetry run pytest
-
-# start a shell in the virtual environment
-poetry shell
+# run the tests
+uv run pytest
 ```
 
-Tip: The project includes a `Makefile` with common targets like `make test` and
-`make build` that call Poetry under the hood.
+The `Makefile` wraps the common tasks: `make test`, `make lint`,
+`make type-check`, `make docs` (HTML in `docs/_build/html`) and `make build`.

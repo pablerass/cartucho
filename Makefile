@@ -1,6 +1,6 @@
-.PHONY: test lint clean-pyc clean-build clean-test build
+.PHONY: test lint clean-pyc clean-build clean-test clean-docs build docs
 
-clean: clean-pyc clean-build clean-test
+clean: clean-pyc clean-build clean-test clean-docs
 
 clean-pyc:
 	find . -name '*.pyc' -exec rm --force {} +
@@ -12,37 +12,44 @@ clean-test:
 	rm --force --recursive .coverage
 	rm --force --recursive .pytest_cache
 
+clean-docs:
+	rm --force --recursive docs/_build/
+
 clean-build:
 	rm --force --recursive build/
 	rm --force --recursive dist/
 	rm --force --recursive *.egg-info
 
 version:
-	poetry version 
+	uv version
 
 bump-major:
-	poetry run bumpver update --major
+	uv run bumpver update --major
 
 bump-minor:
-	poetry run bumpver update --minor
+	uv run bumpver update --minor
 
 bump-patch:
-	poetry run bumpver update --patch
+	uv run bumpver update --patch
 
 build:
-	poetry build
+	uv build
+
+docs:
+	uv run sphinx-build --nitpicky --fail-on-warning --keep-going --builder html docs docs/_build/html
+	@echo "Open docs/_build/html/index.html"
 
 lint:
-	poetry run flake8
+	uv run flake8
 
 type-check:
-	poetry run mypy .
+	uv run mypy .
 
 test:
-	poetry run pytest
+	uv run pytest
 
 test-coverage:
-	poetry run coverage run --source cartucho -m pytest
-	poetry run coverage report -m
+	uv run coverage run --source cartucho -m pytest
+	uv run coverage report -m
 
 test-all: lint type-check test-coverage

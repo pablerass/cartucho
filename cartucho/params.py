@@ -1,18 +1,22 @@
-"""Small utilities for parameter-to-dictionary conversion.
+"""Turn function calls into hashable mappings of their parameters.
 
-This module provides the `params' decorator which transforms a
-function into one that returns an ordered mapping of its parameter
-names to the values supplied when called. The order of keys follows
-the function's definition order. Defaults are filled when available.
+The `params` decorator transforms a function into one that, instead of
+running, returns a `Params` mapping each parameter name to the value it would
+receive. Keys follow the function's signature order and defaults are filled
+in, so equivalent calls give equal (and equally hashed) mappings. This is what
+the cache uses as the key of each entry.
 
 Example:
+    .. code-block:: python
 
-    @params
-    def f(a, b=2, *args, **kwargs):
-        pass
+        @params
+        def f(a, b=2, *args, **kwargs):
+            pass
 
-    f(1, 3, 4, x=5)  # -> OrderedDict([('a', 1), ('b', 3), ('args', (4,)), ('kwargs', {'x': 5})])
-
+        f(1, 3, 4, x=5)
+        # Params({'a': 1, 'b': 3, 'args': (4,), 'kwargs': FrozenDict({'x': 5})})
+        f(1) == f(a=1, b=2)
+        # True
 """
 from __future__ import annotations
 
@@ -22,7 +26,17 @@ from collections.abc import Mapping, Iterable
 
 
 def _freeze(value):
-    """Recursively convert common mutable containers into immutable/hashable equivalents."""
+    """Recursively convert common mutable containers into hashable equivalents.
+
+    Mappings become `FrozenDict`, lists and tuples become tuples, and sets
+    become frozensets. Any other value is returned unchanged.
+
+    Args:
+        value: The value to convert.
+
+    Returns:
+        The converted value.
+    """
     if isinstance(value, FrozenDict) or isinstance(value, Params):
         return value
     if isinstance(value, Mapping):
@@ -38,8 +52,15 @@ def _freeze(value):
 class FrozenDict(Mapping):
     """An immutable, hashable mapping that preserves insertion order.
 
-    It behaves like a read-only dict but is hashable and compares equal to
-    regular mappings with the same items.
+    It behaves like a read-only `dict`, but can be hashed and compares equal
+    to any mapping with the same items, regardless of their order. Nested
+    containers in the values are frozen too.
+
+    If some values are still unhashable after freezing, the hash falls back
+    to their `repr`.
+
+    Args:
+        mapping: The mapping to copy.
     """
 
     def __init__(self, mapping: Mapping):
@@ -81,7 +102,17 @@ class FrozenDict(Mapping):
 
 
 class Params(Mapping):
-    """Immutable, hashable parameters mapping that preserves function signature order."""
+    """Immutable, hashable mapping of parameter names to values.
+
+    Keys keep the order they were given in (the function's signature order
+    when built by `params`). Values are frozen like in `FrozenDict`. It
+    compares equal to any mapping with the same items, but its hash depends
+    on the order of the items.
+
+    Args:
+        items: ``(name, value)`` pairs, in signature order.
+    """
+
     def __init__(self, items: Iterable[tuple[str, object]]):
         self._items = tuple((k, _freeze(v)) for k, v in items)
         self._map = dict(self._items)
@@ -101,6 +132,11 @@ class Params(Mapping):
         return len(self._items)
 
     def items(self):
+        """Return the ``(name, value)`` pairs in order.
+
+        Returns:
+            tuple[tuple[str, object], ...]: The frozen pairs.
+        """
         return tuple(self._items)
 
     def __repr__(self):
@@ -121,14 +157,22 @@ class Params(Mapping):
 
 
 def params(func):
-    """Decorator that makes a function return an ordered mapping of its parameters.
+    """Make a function return the `Params` of each call instead of running.
 
-    The returned value is an ``OrderedDict`` whose keys are the parameter
-    names in the same order as the function signature and whose values are the
-    corresponding bound values (including defaults when not provided).
+    The original function body is never executed: the call is only bound to
+    the signature. Every parameter appears in the result, in signature order,
+    with defaults applied; a missing ``*args`` becomes ``()`` and a missing
+    ``**kwargs`` becomes ``{}``.
 
-    The decorator does not call the original function body; it only
-    inspects the call and returns the parameter mapping.
+    Args:
+        func: The function whose signature is used.
+
+    Returns:
+        A function with the same signature that returns a `Params`.
+
+    Raises:
+        TypeError: When a call does not match the signature, for example
+            because a required argument is missing.
     """
 
     sig = inspect.signature(func)

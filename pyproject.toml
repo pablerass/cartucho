@@ -1,50 +1,58 @@
-[tool.poetry]
+[project]
 name = "cartucho"
 version = "0.1.0a1"
 description = "A tool to cache function and method results"
 readme = "README.md"
-authors = ["Pablo Muñoz <pablerass@gmail.com>"]
+authors = [{ name = "Pablo Muñoz", email = "pablerass@gmail.com" }]
 license = "LGPL-3.0-or-later"
-homepage = "https://github.com/pablerass/cartucho"
+license-files = ["LICENSE.txt"]
+requires-python = ">=3.10"
 keywords = ["cache", "function", "method", "decorator"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
   "Programming Language :: Python :: 3.10",
   "Typing :: Typed",
 ]
+dependencies = []
 
-[tool.poetry.dependencies]
-python = ">=3.10"
-redis = { version = ">=4.0", optional = true }
+[project.optional-dependencies]
+redis = ["redis>=4.0"]
 
-[tool.poetry.extras]
-redis = ["redis"]
+[project.urls]
+Homepage = "https://github.com/pablerass/cartucho"
 
-[tool.poetry.group.test.dependencies]
-pytest = "*"
-flake8 = "*"
-coverage = "*"
-mypy = "*"
-redis = ">=4.0"
-fakeredis = "*"
+[dependency-groups]
+test = [
+  "pytest",
+  "flake8",
+  "coverage",
+  "mypy",
+  "redis>=4.0",
+  "fakeredis",
+]
+dev = [
+  "bumpver",
+  "ipython",
+  "ipdb",
+]
+docs = [
+  "sphinx",
+  "furo",
+  "myst-parser",
+]
 
-[tool.poetry.group.dev.dependencies]
-bumpver = "*"
-ipython = "*"
-ipdb = "*"
-build = "*"
+[tool.uv]
+# Install every group with a plain `uv sync`.
+default-groups = ["test", "dev", "docs"]
 
-[tool.poetry.urls]
-homepage = "https://github.com/pablerass/cartucho"
-
-[[tool.poetry.packages]]
-include = "cartucho"
+[tool.uv.build-backend]
+# The package lives at the repository root, not under src/.
+module-root = ""
 
 [build-system]
-requires = ["poetry-core>=1.7.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["uv_build>=0.13.6,<0.14"]
+build-backend = "uv_build"
 
 [pytest]
 addopts = "--pdbcls=IPython.terminal.debugger:TerminalPdb"

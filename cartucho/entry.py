@@ -10,10 +10,15 @@ from .params import Params
 
 @dataclass
 class CacheEntry:
-    """A cached `result` for `params`.
+    """A cached result and the parameters it was computed for.
 
-    - `creation_time` is set when the entry is created.
-    - `last_retrieved` is updated by the backend every time the entry is read.
+    Attributes:
+        params: Parameters of the call that produced ``result``.
+        result: Value returned by the call.
+        creation_time: Unix timestamp of when the entry was created. Set
+            automatically.
+        last_retrieved: Unix timestamp of the last read, or ``None`` if the
+            entry has never been read. Backends update it through `touch`.
     """
 
     params: Params
@@ -22,7 +27,7 @@ class CacheEntry:
     last_retrieved: Optional[float] = None
 
     def touch(self) -> None:
-        """Update the `last_retrieved` timestamp to now."""
+        """Set `last_retrieved` to the current time."""
 
         self.last_retrieved = time.time()
 
