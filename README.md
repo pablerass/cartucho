@@ -36,6 +36,9 @@ class Bitbucket(Cacheable):
 
 See [ADR 1](docs/adr/0001-cacheable-instance-scopes.md) for the reasoning.
 
+Both decorators also work on coroutine functions (`async def`): the wrapper
+is a coroutine function as well and caches the awaited result.
+
 ## Backends
 
 `ReturnCache` keeps entries in a backend from `cartucho.backends`.

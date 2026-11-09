@@ -20,36 +20,73 @@ Example:
 """
 from __future__ import annotations
 
+import inspect
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable
 
-from .params import Params, params as params_decorator
+from .params import Params
+from .params import params as params_decorator
 from .return_cache import Cacheable, ReturnCache
 
 _MISSING = object()
 
+# What a decorator needs to cache one call: the cache, the scope and the key.
+# ``None`` means the call is not cached.
+_Target = tuple[ReturnCache, str, Params] | None
 
-def _cached_call(cache: ReturnCache, scope: str, key: Params, func: Callable, args: Any, kwargs: Any) -> Any:
-    """Return the cached result for ``key`` or compute, store and return it.
+
+def _scope(func: Callable) -> str:
+    """Return the cache scope of ``func``: its module and qualified name."""
+    # Every function has __qualname__, but not every Callable (as typed) does.
+    return f"{func.__module__}.{getattr(func, '__qualname__', type(func).__qualname__)}"
+
+
+def _wrap(func: Callable, resolve: Callable[..., _Target]) -> Callable:
+    """Wrap ``func`` so its results are cached where ``resolve`` says.
+
+    Coroutine functions get a coroutine wrapper that caches the awaited
+    result, not the coroutine object, so it can be awaited on every call.
 
     Args:
-        cache: Cache to read from and write to.
-        scope: Scope of the entry inside ``cache``.
-        key: Parameters identifying the call.
-        func: Function to call on a cache miss.
-        args: Positional arguments for ``func``.
-        kwargs: Keyword arguments for ``func``.
+        func: Function or method to memoize.
+        resolve: Called with the call's arguments; returns the cache, scope
+            and key to use, or ``None`` to call ``func`` without caching.
 
     Returns:
-        The cached or freshly computed result.
+        The wrapper. It keeps the original name and docstring (see
+        `functools.wraps`).
     """
     # Single lookup with a sentinel: a has()/get() pair could race with
     # expiration in shared backends, and None is a valid cached result.
-    result = cache.get(key, _MISSING, scope=scope)
-    if result is _MISSING:
-        result = func(*args, **kwargs)
-        cache.set(key, result, scope=scope)
-    return result
+    if inspect.iscoroutinefunction(func):
+
+        @wraps(func)
+        async def async_wrapper(*args, **kwargs):
+            target = resolve(*args, **kwargs)
+            if target is None:
+                return await func(*args, **kwargs)
+            cache, scope, key = target
+            result = cache.get(key, _MISSING, scope=scope)
+            if result is _MISSING:
+                result = await func(*args, **kwargs)
+                cache.set(key, result, scope=scope)
+            return result
+
+        return async_wrapper
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        target = resolve(*args, **kwargs)
+        if target is None:
+            return func(*args, **kwargs)
+        cache, scope, key = target
+        result = cache.get(key, _MISSING, scope=scope)
+        if result is _MISSING:
+            result = func(*args, **kwargs)
+            cache.set(key, result, scope=scope)
+        return result
+
+    return wrapper
 
 
 def cached_function(cache: ReturnCache | None) -> Callable[[Callable], Callable]:
@@ -58,6 +95,9 @@ def cached_function(cache: ReturnCache | None) -> Callable[[Callable], Callable]
     Calls that bind to the same parameters (positional or keyword, with
     defaults applied) share one entry. ``None`` is a valid result and is
     cached like any other.
+
+    Coroutine functions (``async def``) are supported: the wrapper is a
+    coroutine function too and caches the awaited result.
 
     Args:
         cache: Cache that stores the results. If ``None``, nothing is cached
@@ -82,18 +122,17 @@ def cached_function(cache: ReturnCache | None) -> Callable[[Callable], Callable]
 
     def decorator(func: Callable) -> Callable:
         params_maker = params_decorator(func)
-        scope = f"{func.__module__}.{func.__qualname__}"
+        scope = _scope(func)
 
-        @wraps(func)
-        def wrapper(*args, **kwargs):
+        def resolve(*args, **kwargs) -> _Target:
             if cache is None:
-                return func(*args, **kwargs)
+                return None
             key = params_maker(*args, **kwargs)
             if "self" in key:
                 raise TypeError("cached_function cannot be used on instance methods, use cached_method")
-            return _cached_call(cache, scope, key, func, args, kwargs)
+            return cache, scope, key
 
-        return wrapper
+        return _wrap(func, resolve)
 
     return decorator
 
@@ -105,6 +144,9 @@ def cached_method(func: Callable) -> Callable:
     `Cacheable.cache_id`, so instances with the same id (by default, all of
     them) share results. ``self`` is not part of the key. If the instance's
     ``return_cache`` is ``None``, nothing is cached.
+
+    Coroutine methods (``async def``) are supported: the wrapper is a
+    coroutine function too and caches the awaited result.
 
     Args:
         func: The method to memoize.
@@ -133,8 +175,7 @@ def cached_method(func: Callable) -> Callable:
 
     params_maker = params_decorator(func)
 
-    @wraps(func)
-    def wrapper(*args, **kwargs):
+    def resolve(*args, **kwargs) -> _Target:
         key = params_maker(*args, **kwargs)
         if "self" not in key:
             raise TypeError("cached_method must be used on instance methods")
@@ -143,16 +184,16 @@ def cached_method(func: Callable) -> Callable:
         if not isinstance(self_obj, Cacheable):
             raise TypeError("Instance is not Cacheable; cannot use cached_method")
         if self_obj.return_cache is None:
-            return func(*args, **kwargs)
+            return None
 
         key = Params((k, v) for k, v in key.items() if k != "self")
-        scope = f"{func.__module__}.{func.__qualname__}"
+        scope = _scope(func)
         cache_id = self_obj.cache_id()
         if cache_id:
             scope = f"{scope}[{cache_id}]"
-        return _cached_call(self_obj.return_cache, scope, key, func, args, kwargs)
+        return self_obj.return_cache, scope, key
 
-    return wrapper
+    return _wrap(func, resolve)
 
 
 __all__ = ["cached_function", "cached_method"]

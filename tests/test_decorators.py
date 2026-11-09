@@ -1,8 +1,12 @@
+import asyncio
+import inspect
 import time
 
-from cartucho.return_cache import ReturnCache
-from cartucho.decorators import cached_function
+import pytest
+
+from cartucho.decorators import cached_function, cached_method
 from cartucho.params import params as params_decorator
+from cartucho.return_cache import Cacheable, ReturnCache
 
 
 def test_cached_stores_result_and_retrieves_from_cache():
@@ -111,3 +115,80 @@ def test_cached_function_none_cache_disables_caching():
 
     assert f(1) == f(1) == 1
     assert calls == [1, 1]
+
+
+def test_cached_coroutine_function_caches_awaited_result():
+    cache = ReturnCache()
+    calls = []
+
+    @cached_function(cache)
+    async def add(a, b=2):
+        calls.append((a, b))
+        await asyncio.sleep(0)
+        return a + b
+
+    assert inspect.iscoroutinefunction(add)
+
+    async def main():
+        return [await add(1), await add(1), await add(a=1), await add(1, b=3)]
+
+    assert asyncio.run(main()) == [3, 3, 3, 4]
+    assert calls == [(1, 2), (1, 3)]
+    # The stored value is the result, not a coroutine.
+    assert sorted(result for _, result in cache.items()) == [3, 4]
+
+
+def test_cached_coroutine_function_none_cache_disables_caching():
+    calls = []
+
+    @cached_function(None)
+    async def f(a):
+        calls.append(a)
+        return a
+
+    async def main():
+        return [await f(1), await f(1)]
+
+    assert asyncio.run(main()) == [1, 1]
+    assert calls == [1, 1]
+
+
+def test_cached_coroutine_function_exception_is_not_cached():
+    cache = ReturnCache()
+    calls = []
+
+    @cached_function(cache)
+    async def fail(a):
+        calls.append(a)
+        raise ValueError(a)
+
+    async def main():
+        for _ in range(2):
+            with pytest.raises(ValueError):
+                await fail(1)
+
+    asyncio.run(main())
+    assert calls == [1, 1]
+    assert len(cache) == 0
+
+
+def test_cached_coroutine_method_uses_return_cache():
+    calls = []
+
+    class Client(Cacheable):
+        @cached_method
+        async def get(self, x):
+            calls.append(x)
+            return x * 2
+
+    cache = ReturnCache()
+    client = Client(cache)
+    uncached = Client(None)
+
+    async def main():
+        return [await client.get(2), await client.get(2), await uncached.get(2), await uncached.get(2)]
+
+    assert inspect.iscoroutinefunction(Client.get)
+    assert asyncio.run(main()) == [4, 4, 4, 4]
+    assert calls == [2, 2, 2]
+    assert len(cache) == 1

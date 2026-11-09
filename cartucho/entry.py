@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from .params import Params
 
@@ -24,7 +24,7 @@ class CacheEntry:
     params: Params
     result: Any
     creation_time: float = field(default_factory=time.time)
-    last_retrieved: Optional[float] = None
+    last_retrieved: float | None = None
 
     def touch(self) -> None:
         """Set `last_retrieved` to the current time."""

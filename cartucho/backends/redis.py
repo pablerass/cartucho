@@ -14,8 +14,8 @@ from __future__ import annotations
 import hashlib
 import pickle
 import re
-from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, Iterator
+from collections.abc import Iterator, Mapping
+from typing import TYPE_CHECKING, Any
 
 from ..entry import CacheEntry
 from ..params import Params
@@ -70,6 +70,18 @@ def params_digest(params: Params) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def _unpickle(data: bytes | str) -> CacheEntry:
+    """Load an entry stored by `RedisBackend`.
+
+    Raises:
+        TypeError: When ``data`` is a ``str``, which happens when the client
+            uses ``decode_responses=True``.
+    """
+    if isinstance(data, str):
+        raise TypeError("RedisBackend needs a Redis client without decode_responses=True")
+    return pickle.loads(data)
+
+
 def _scope_digest(scope: str) -> str:
     """Return a fixed-length hex digest of ``scope`` for use in keys."""
     # Fixed length and hex only: no scope can be a prefix of another one and
@@ -107,7 +119,7 @@ class RedisBackend(Backend):
 
     def __init__(
         self,
-        client: "Redis",
+        client: Redis,
         prefix: str = "cartucho",
         ttl: int | None = None,
         track_retrievals: bool = True,
@@ -120,7 +132,7 @@ class RedisBackend(Backend):
         self._track_retrievals = track_retrievals
 
     @classmethod
-    def from_url(cls, url: str, **kwargs: Any) -> "RedisBackend":
+    def from_url(cls, url: str, **kwargs: Any) -> RedisBackend:
         """Create a backend connected to a Redis URL.
 
         Args:
@@ -159,7 +171,7 @@ class RedisBackend(Backend):
         data = self._redis.get(key)
         if data is None:
             return None
-        entry: CacheEntry = pickle.loads(data)
+        entry = _unpickle(data)
         if self._track_retrievals:
             entry.touch()
             # xx: don't resurrect an entry deleted or expired meanwhile.
@@ -175,7 +187,7 @@ class RedisBackend(Backend):
     def delete(self, scope: str, params: Params) -> CacheEntry | None:
         """See `Backend.delete`."""
         data = self._redis.getdel(self._key(scope, params))
-        return None if data is None else pickle.loads(data)
+        return None if data is None else _unpickle(data)
 
     def has(self, scope: str, params: Params) -> bool:
         """See `Backend.has`."""
@@ -190,7 +202,7 @@ class RedisBackend(Backend):
         for key in self._keys(scope):
             data = self._redis.get(key)
             if data is not None:  # it may have expired since the scan
-                yield pickle.loads(data)
+                yield _unpickle(data)
 
     def clear(self, scope: str | None = None) -> None:
         """See `Backend.clear`.

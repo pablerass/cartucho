@@ -6,11 +6,11 @@ import pytest
 
 fakeredis = pytest.importorskip("fakeredis")
 
-from cartucho import ReturnCache, cached_function  # noqa: E402
-from cartucho.entry import CacheEntry  # noqa: E402
-from cartucho.params import Params  # noqa: E402
-from cartucho.backends import RedisBackend  # noqa: E402
-from cartucho.backends.redis import params_digest  # noqa: E402
+from cartucho import ReturnCache, cached_function
+from cartucho.backends import RedisBackend
+from cartucho.backends.redis import params_digest
+from cartucho.entry import CacheEntry
+from cartucho.params import Params
 
 
 def test_prefix_isolates_storages():
@@ -21,7 +21,9 @@ def test_prefix_isolates_storages():
     a.set("", CacheEntry(p, 1))
     assert not b.has("", p)
     b.clear()
-    assert a.get("", p).result == 1
+    entry = a.get("", p)
+    assert entry is not None
+    assert entry.result == 1
 
 
 def test_ttl_sets_expiry_and_hits_keep_it():

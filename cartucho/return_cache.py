@@ -11,7 +11,8 @@ Example:
 """
 from __future__ import annotations
 
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 from .backends import Backend, MemoryBackend
 from .entry import CacheEntry
@@ -196,4 +197,4 @@ class Cacheable:
         return ",".join(parts)
 
 
-__all__ = ["ReturnCache", "Cacheable"]
+__all__ = ["Cacheable", "ReturnCache"]

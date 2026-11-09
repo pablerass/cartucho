@@ -25,11 +25,11 @@ Homepage = "https://github.com/pablerass/cartucho"
 [dependency-groups]
 test = [
   "pytest",
-  "flake8",
   "coverage",
-  "mypy",
   "redis>=4.0",
   "fakeredis",
+  "ty>=0.0.99",
+  "ruff>=0.17.4",
 ]
 dev = [
   "bumpver",
@@ -45,6 +45,10 @@ docs = [
 [tool.uv]
 # Install every group with a plain `uv sync`.
 default-groups = ["test", "dev", "docs"]
+
+[tool.ruff]
+line-length = 120
+extend-exclude = ["docs"]
 
 [tool.uv.build-backend]
 # The package lives at the repository root, not under src/.

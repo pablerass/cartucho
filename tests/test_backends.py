@@ -3,9 +3,9 @@ import time
 
 import pytest
 
+from cartucho.backends import MemoryBackend, RedisBackend
 from cartucho.entry import CacheEntry
 from cartucho.params import Params
-from cartucho.backends import MemoryBackend, RedisBackend
 
 
 def _memory():
@@ -90,4 +90,6 @@ def test_memory_save_load(tmp_path):
     backend.set("s", CacheEntry(P1, 100))
     path = tmp_path / "cache.pkl"
     backend.save(path)
-    assert MemoryBackend.load(path).get("s", P1).result == 100
+    entry = MemoryBackend.load(path).get("s", P1)
+    assert entry is not None
+    assert entry.result == 100

@@ -26,4 +26,4 @@ from .return_cache import Cacheable, ReturnCache
 
 __version__ = "0.1.0a1"
 
-__all__ = ["__version__", "ReturnCache", "Cacheable", "cached_function", "cached_method"]
+__all__ = ["Cacheable", "ReturnCache", "__version__", "cached_function", "cached_method"]

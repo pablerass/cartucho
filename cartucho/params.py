@@ -21,8 +21,8 @@ Example:
 from __future__ import annotations
 
 import inspect
+from collections.abc import Iterable, Mapping
 from functools import wraps
-from collections.abc import Mapping, Iterable
 
 
 def _freeze(value):
@@ -37,7 +37,7 @@ def _freeze(value):
     Returns:
         The converted value.
     """
-    if isinstance(value, FrozenDict) or isinstance(value, Params):
+    if isinstance(value, (FrozenDict, Params)):
         return value
     if isinstance(value, Mapping):
         return FrozenDict(value)
@@ -181,11 +181,7 @@ def params(func):
     def wrapper(*args, **kwargs):
         bound = sig.bind_partial(*args, **kwargs)
         # apply_defaults fills in default values for parameters that have them
-        try:
-            bound.apply_defaults()
-        except Exception:
-            # In case apply_defaults isn't available or fails, fall back to manual defaults
-            pass
+        bound.apply_defaults()
 
         items = []
         for name, param in sig.parameters.items():
@@ -207,4 +203,4 @@ def params(func):
     return wrapper
 
 
-__all__ = ["params", "Params", "FrozenDict"]
+__all__ = ["FrozenDict", "Params", "params"]
